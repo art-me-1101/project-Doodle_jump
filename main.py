@@ -44,10 +44,21 @@ class Doodle(pygame.sprite.Sprite):
         super().__init__(player)
         self.image = doodle
         self.speed_y = 0
-        self.rect = self.image.get_rect().move(pos_x, pos_y)
+        self.speed_x = 0
+        self.pos_x, self.pos_y = pos_x, pos_y
+        self.rect = self.image.get_rect().move(self.pos_x, self.pos_y)
 
     def update_jump(self):
-        pass
+        if pygame.sprite.spritecollideany(self, platform_group) and self.speed_y <= 0:
+            self.speed_y = 4.5
+        else:
+            self.speed_y -= 0.1
+        if self.speed_y >= 0:
+            self.pos_y -= self.speed_y ** 2
+        else:
+            self.pos_y += self.speed_y ** 2
+        self.rect.y = self.pos_y
+
 
 
 if __name__ == '__main__':
@@ -55,11 +66,23 @@ if __name__ == '__main__':
     running = True
     clock = pygame.time.Clock()
     Common_Plate(309, 700)
-    Doodle(320, 630)
+    Common_Plate(109, 700)
+    Common_Plate(509, 700)
+    player1 = Doodle(320, 630)
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_LEFT]:
+            player1.rect.x -= 5
+        elif keys[pygame.K_RIGHT]:
+                player1.rect.x += 5
+        if player1.rect.x + player1.rect.width // 2 < 0:
+            player1.rect.x = width - player1.rect.width // 2
+        elif player1.rect.x - player1.rect.width // 2 > width:
+            player1.rect.x = - player1.rect.width // 2
+        player1.update_jump()
         screen.blit(fon, (0, 0))
         platform_group.draw(screen)
         player.draw(screen)
