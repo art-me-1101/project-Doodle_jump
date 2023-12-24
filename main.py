@@ -1,15 +1,17 @@
 import pygame
 import sys
+import random
 import os
 
 pygame.init()
-size = width, height = 700, 1000
+size = width, height = 500, 1000
 screen = pygame.display.set_mode(size)
 fps = 60
 platform_group = pygame.sprite.Group()
 start_pos = pygame.sprite.Group()
 player = pygame.sprite.Group()
-space = 20
+space = 100
+up_line = 500
 
 
 def load_image(name, colorkey=None):
@@ -52,16 +54,26 @@ class Doodle(pygame.sprite.Sprite):
         self.rect = self.image.get_rect().move(self.pos_x, self.pos_y)
 
     def update_jump(self):
-        if pygame.sprite.spritecollideany(self, platform_group) and self.speed_y <= 0:
-            self.speed_y = 4.5
+        sprite = pygame.sprite.spritecollideany(self, platform_group)
+        if sprite is not None and self.speed_y <= 0:
+            if sprite.rect.y > self.rect.y + self.rect.height // 2:
+                self.speed_y = 4.5
+            else:
+                self.speed_y -= 0.1
         else:
             self.speed_y -= 0.1
-        if self.speed_y >= 0:
-            self.pos_y -= self.speed_y ** 2
-            self.real_speed_y = self.speed_y ** 2
+        if not (self.pos_y < up_line and self.speed_y > 0):
+            if self.speed_y >= 0:
+                self.pos_y -= self.speed_y ** 2
+                self.real_speed_y = self.speed_y ** 2
+            else:
+                self.pos_y += self.speed_y ** 2
+                self.real_speed_y = -self.speed_y ** 2
         else:
-            self.pos_y += self.speed_y ** 2
-            self.real_speed_y = -self.speed_y ** 2
+            if self.speed_y >= 0:
+                self.real_speed_y = self.speed_y ** 2
+            else:
+                self.real_speed_y = -self.speed_y ** 2
         self.rect.y = self.pos_y
 
 
@@ -82,44 +94,62 @@ class Start_point(pygame.sprite.Sprite):
         self.rect = image.get_rect().move(pos)
 
 
+class Game:
+    def __init__(self):
+        self.score = 0
+        self.fon = pygame.transform.scale(load_image('fon.jpg'), (width, height))
+        self.running = True
+        self.clock = pygame.time.Clock()
+        Common_Plate(309, 700)
+        for y in range(700 - space, 0, -space):
+            Common_Plate(random.randrange(0, width - platforms['common'].get_width()), y)
+        self.player1 = Doodle(320, 630)
+        self.start_pos1 = Start_point((self.player1.pos_x, self.player1.pos_y))
+        self.camera = Camera((self.player1.rect.x, self.player1.rect.y))
+        self.y_for_new_plate = self.player1.rect.y - up_line
+
+    def run(self):
+        while self.running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_LEFT]:
+                self.player1.rect.x -= 5
+            elif keys[pygame.K_RIGHT]:
+                self.player1.rect.x += 5
+            if self.player1.rect.x + self.player1.rect.width // 2 < 0:
+                self.player1.rect.x = width - self.player1.rect.width // 2
+            elif self.player1.rect.x - self.player1.rect.width // 2 > width:
+                self.player1.rect.x = - self.player1.rect.width // 2
+            self.player1.update_jump()
+            if (self.player1.speed_y > 0 and self.player1.pos_y < up_line) or self.player1.pos_y > 900:
+                for sprite in platform_group:
+                    self.camera.apply(sprite, self.player1.real_speed_y)
+                    if sprite.rect.y > height + 50 or sprite.rect.y < -200:
+                        sprite.kill()
+                self.camera.apply(self.start_pos1, self.player1.real_speed_y)
+            if self.score < self.start_pos1.rect.y - self.player1.rect.y:
+                self.score = self.start_pos1.rect.y - self.player1.rect.y
+                if self.y_for_new_plate < self.score - space:
+                    self.y_for_new_plate += space
+                    Common_Plate(random.randrange(0, width - platforms['common'].get_width()), 0)
+            if not platform_group.sprites():
+                self.game_over()
+            screen.blit(self.fon, (0, 0))
+            platform_group.draw(screen)
+            player.draw(screen)
+            self.clock.tick(fps)
+            pygame.display.flip()
+        pygame.quit()
+
+    def game_over(self):
+        while self.player1.rect.y < height:
+            self.player1.update_jump()
+        print('game_over')
+        self.running = False
+
+
 if __name__ == '__main__':
-    score = 0
-    fon = pygame.transform.scale(load_image('fon.jpg'), (width, height))
-    running = True
-    clock = pygame.time.Clock()
-    Common_Plate(309, 700)
-    Common_Plate(109, 500)
-    Common_Plate(509, 700)
-    player1 = Doodle(320, 630)
-    start_pos1 = Start_point((player1.pos_x, player1.pos_y))
-    camera = Camera((player1.rect.x, player1.rect.y))
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT]:
-            player1.rect.x -= 5
-        elif keys[pygame.K_RIGHT]:
-            player1.rect.x += 5
-        if player1.rect.x + player1.rect.width // 2 < 0:
-            player1.rect.x = width - player1.rect.width // 2
-        elif player1.rect.x - player1.rect.width // 2 > width:
-            player1.rect.x = - player1.rect.width // 2
-        player1.update_jump()
-        if (player1.speed_y > 0 and player1.pos_y < 300) or player1.pos_y > 900:
-            for sprite in platform_group:
-                camera.apply(sprite, player1.real_speed_y)
-                if sprite.rect.y > height + 50:
-                    sprite.kill()
-            camera.apply(start_pos1, player1.real_speed_y)
-            player1.pos_y += player1.real_speed_y
-        if score < start_pos1.rect.y - player1.rect.y:
-            score = start_pos1.rect.y - player1.rect.y
-            print(score)
-        screen.blit(fon, (0, 0))
-        platform_group.draw(screen)
-        player.draw(screen)
-        clock.tick(fps)
-        pygame.display.flip()
-    pygame.quit()
+    game = Game()
+    game.run()
