@@ -10,7 +10,7 @@ FPS = 60
 platform_group = pygame.sprite.Group()
 start_pos = pygame.sprite.Group()
 player = pygame.sprite.Group()
-space = 100
+moving_platform_group = pygame.sprite.Group()
 up_line = 500
 
 
@@ -56,7 +56,8 @@ class AnimatedSprite(pygame.sprite.Sprite):
 lava = AnimatedSprite(load_image('Lava-Background-PNG-Image.png'), 4, 2, -100, 2 * height + 500)
 
 platforms = {
-    'common': load_image('common_plate.png')
+    'common': load_image('common_plate.png'),
+    'moving': load_image('moving plate.png')
 }
 doodle = load_image('doodle.png')
 
@@ -66,6 +67,21 @@ class Common_Plate(pygame.sprite.Sprite):
         super().__init__(platform_group)
         self.image = platforms['common']
         self.rect = self.image.get_rect().move(pos_x, pos_y)
+
+
+class Moving_Plate(pygame.sprite.Sprite):
+    def __init__(self, pos_x, pos_y):
+        super().__init__(platform_group, moving_platform_group)
+        self.image = platforms['moving']
+        self.rect = self.image.get_rect().move(pos_x, pos_y)
+        self.direction = 3
+
+    def update(self):
+        if self.rect.x < 0:
+            self.direction = 3
+        elif self.rect.x + self.rect.width > width:
+            self.direction = -3
+        self.rect.x += self.direction
 
 
 class Doodle(pygame.sprite.Sprite):
@@ -124,14 +140,20 @@ class Game:
         self.score = 0
         self.fon = pygame.transform.scale(load_image('fon.jpg'), (width, height))
         self.clock = pygame.time.Clock()
-        Common_Plate(309, 700)
-        for y in range(700 - space, 0, -space):
-            Common_Plate(random.randrange(0, width - platforms['common'].get_width()), y)
-        self.player1 = Doodle(320, 630)
+        self.com_plate = 98
+        self.move_plate = 3
+        self.space = 100
+        Common_Plate(193, 700)
+        for y in range(700 - self.space, 0, -self.space):
+            n = random.randrange(0, 101)
+            if n <= self.com_plate:
+                Common_Plate(random.randrange(0, width - platforms['common'].get_width()), y)
+            elif n <= self.com_plate + self.move_plate:
+                Moving_Plate(random.randrange(0, width - platforms['moving'].get_width()), y)
+        self.player1 = Doodle(215, 630)
         self.start_pos1 = Start_point((self.player1.pos_x, self.player1.pos_y))
         self.camera = Camera((self.player1.rect.x, self.player1.rect.y))
         self.y_for_new_plate = self.player1.rect.y - up_line
-        self.com_plate = 100
         self.lava_speed = 4
 
     def run(self):
@@ -140,7 +162,6 @@ class Game:
         g_o = False
         while running:
             lava.rect.y = lava.rect.y - self.lava_speed
-            print(lava.rect.y)
             dt = self.clock.tick()
             time_since_last_update += dt
             if time_since_last_update > 10:
@@ -159,8 +180,9 @@ class Game:
             elif self.player1.rect.x - self.player1.rect.width // 2 > width:
                 self.player1.rect.x = - self.player1.rect.width // 2
             self.player1.update_jump()
-            if (
-                    self.player1.speed_y > 0 and self.player1.pos_y < up_line) or \
+            for sprite in moving_platform_group:
+                sprite.update()
+            if (self.player1.speed_y > 0 and self.player1.pos_y < up_line) or \
                     self.player1.pos_y > 950 - self.player1.rect.height:
                 for sprite in platform_group:
                     self.camera.apply(sprite, self.player1.real_speed_y)
@@ -171,11 +193,15 @@ class Game:
                     self.camera.apply(lava, self.player1.real_speed_y)
             if self.score < self.start_pos1.rect.y - self.player1.rect.y:
                 self.score = self.start_pos1.rect.y - self.player1.rect.y
-                if self.y_for_new_plate < self.score - space:
-                    self.y_for_new_plate += space
-                    n = random.randrange(0, 100)
+                if self.y_for_new_plate < self.score - self.space:
+                    self.y_for_new_plate += self.space
+                    n = random.randrange(0, 101)
                     if n <= self.com_plate:
                         Common_Plate(random.randrange(0, width - platforms['common'].get_width()), 0)
+                        self.space = 100
+                    elif n <= self.com_plate + self.move_plate:
+                        Moving_Plate(random.randrange(0, width - platforms['moving'].get_width()), 0)
+                        self.space = 200
             if not platform_group and not g_o:
                 lava.rect.y = height
                 g_o = True
@@ -204,7 +230,6 @@ class Game:
             if lava.rect.y > 0:
                 lava.rect.y -= 10
             dt = self.clock.tick()
-            print(dt)
             time_since_last_update += dt
             if time_since_last_update > 10:
                 lava.update()
