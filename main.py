@@ -6,7 +6,7 @@ import os
 pygame.init()
 size = width, height = 500, 1000
 screen = pygame.display.set_mode(size)
-fps = 60
+FPS = 60
 platform_group = pygame.sprite.Group()
 start_pos = pygame.sprite.Group()
 player = pygame.sprite.Group()
@@ -29,6 +29,31 @@ def load_image(name, colorkey=None):
         image = image.convert_alpha()
     return image
 
+
+class AnimatedSprite(pygame.sprite.Sprite):
+    def __init__(self, sheet, columns, rows, x, y):
+        super().__init__()
+        self.frames = []
+        self.cut_sheet(sheet, columns, rows)
+        self.cur_frame = 0
+        self.image = self.frames[self.cur_frame]
+        self.rect = self.rect.move(x, y)
+
+    def cut_sheet(self, sheet, columns, rows):
+        self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
+                                sheet.get_height() // rows)
+        for j in range(rows):
+            for i in range(columns):
+                frame_location = (self.rect.w * i, self.rect.h * j)
+                self.frames.append(sheet.subsurface(pygame.Rect(
+                    frame_location, self.rect.size)))
+
+    def update(self):
+        self.cur_frame = (self.cur_frame + 1) % len(self.frames)
+        self.image = self.frames[self.cur_frame]
+
+
+lava = AnimatedSprite(load_image('Lava-Background-PNG-Image.png'), 4, 2, -100, 2 * height + 500)
 
 platforms = {
     'common': load_image('common_plate.png')
@@ -62,7 +87,7 @@ class Doodle(pygame.sprite.Sprite):
                 self.speed_y -= 0.1
         else:
             self.speed_y -= 0.1
-        if not (self.pos_y < up_line and self.speed_y > 0):
+        if not (self.pos_y < up_line and self.speed_y > 0) and self.pos_y < 950 - self.rect.height:
             if self.speed_y >= 0:
                 self.pos_y -= self.speed_y ** 2
                 self.real_speed_y = self.speed_y ** 2
@@ -98,7 +123,6 @@ class Game:
     def __init__(self):
         self.score = 0
         self.fon = pygame.transform.scale(load_image('fon.jpg'), (width, height))
-        self.running = True
         self.clock = pygame.time.Clock()
         Common_Plate(309, 700)
         for y in range(700 - space, 0, -space):
@@ -107,12 +131,24 @@ class Game:
         self.start_pos1 = Start_point((self.player1.pos_x, self.player1.pos_y))
         self.camera = Camera((self.player1.rect.x, self.player1.rect.y))
         self.y_for_new_plate = self.player1.rect.y - up_line
+        self.com_plate = 100
+        self.lava_speed = 4
 
     def run(self):
-        while self.running:
+        time_since_last_update = 0
+        running = True
+        g_o = False
+        while running:
+            lava.rect.y = lava.rect.y - self.lava_speed
+            print(lava.rect.y)
+            dt = self.clock.tick()
+            time_since_last_update += dt
+            if time_since_last_update > 10:
+                lava.update()
+                time_since_last_update = 0
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    self.running = False
+                    running = False
             keys = pygame.key.get_pressed()
             if keys[pygame.K_LEFT]:
                 self.player1.rect.x -= 5
@@ -123,31 +159,67 @@ class Game:
             elif self.player1.rect.x - self.player1.rect.width // 2 > width:
                 self.player1.rect.x = - self.player1.rect.width // 2
             self.player1.update_jump()
-            if (self.player1.speed_y > 0 and self.player1.pos_y < up_line) or self.player1.pos_y > 900:
+            if (
+                    self.player1.speed_y > 0 and self.player1.pos_y < up_line) or \
+                    self.player1.pos_y > 950 - self.player1.rect.height:
                 for sprite in platform_group:
                     self.camera.apply(sprite, self.player1.real_speed_y)
                     if sprite.rect.y > height + 50 or sprite.rect.y < -200:
                         sprite.kill()
                 self.camera.apply(self.start_pos1, self.player1.real_speed_y)
+                if lava.rect.y < height * 2:
+                    self.camera.apply(lava, self.player1.real_speed_y)
             if self.score < self.start_pos1.rect.y - self.player1.rect.y:
                 self.score = self.start_pos1.rect.y - self.player1.rect.y
                 if self.y_for_new_plate < self.score - space:
                     self.y_for_new_plate += space
-                    Common_Plate(random.randrange(0, width - platforms['common'].get_width()), 0)
-            if not platform_group.sprites():
+                    n = random.randrange(0, 100)
+                    if n <= self.com_plate:
+                        Common_Plate(random.randrange(0, width - platforms['common'].get_width()), 0)
+            if not platform_group and not g_o:
+                lava.rect.y = height
+                g_o = True
+            if pygame.sprite.collide_mask(self.player1, lava):
+                running = False
                 self.game_over()
             screen.blit(self.fon, (0, 0))
             platform_group.draw(screen)
             player.draw(screen)
-            self.clock.tick(fps)
+            screen.blit(lava.image, (lava.rect.x, lava.rect.y))
+            self.clock.tick(FPS)
             pygame.display.flip()
         pygame.quit()
 
     def game_over(self):
-        while self.player1.rect.y < height:
-            self.player1.update_jump()
-        print('game_over')
-        self.running = False
+        running = True
+        opacity = 0
+        time_since_last_update = 0
+        s = pygame.Surface((width, height))
+        s.fill((0, 0, 0))
+        s.set_alpha(opacity)
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+            if lava.rect.y > 0:
+                lava.rect.y -= 10
+            dt = self.clock.tick()
+            print(dt)
+            time_since_last_update += dt
+            if time_since_last_update > 10:
+                lava.update()
+                time_since_last_update = 0
+            screen.blit(self.fon, (0, 0))
+            platform_group.draw(screen)
+            player.draw(screen)
+            screen.blit(lava.image, (lava.rect.x, lava.rect.y))
+            if lava.rect.y <= 0:
+                if opacity < 255:
+                    opacity += 10
+                s.set_alpha(opacity)
+            screen.blit(s, (0, 0))
+            self.clock.tick(FPS)
+            pygame.display.flip()
 
 
 if __name__ == '__main__':
