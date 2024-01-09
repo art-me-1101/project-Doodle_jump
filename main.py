@@ -18,7 +18,7 @@ break_platform_group = pygame.sprite.Group()
 buttons_group = pygame.sprite.Group()
 shuriken_group = pygame.sprite.Group()
 fire_ball_group = pygame.sprite.Group()
-stars = pygame.sprite.Group()
+monsters_group = pygame.sprite.Group()
 
 
 def load_image(name, colorkey=None):
@@ -82,6 +82,9 @@ fire_balls = {
     'r': [load_image('fire_ball_orange_R.png'), load_image('fire_ball_purple_R.png'),
           load_image('fire_ball_blue_R.png')]
 }
+monsters = {
+    'moving': load_image('moving_monster.png')
+}
 heard = load_image('heals.png')
 
 
@@ -127,6 +130,38 @@ class FireBall(pygame.sprite.Sprite):
         if self.rect.x + self.rect.w + 50 < 0 or self.rect.x - 50 > width or self.rect.y - 50 > height or \
                 self.rect.y + self.rect.w + 50 < 0:
             self.kill()
+
+
+class MovingMonster(pygame.sprite.Sprite):
+    def __init__(self, sheet, columns, rows, x, y):
+        super().__init__(monsters_group, all_spite_group)
+        self.x, self.y = x, y
+        self.frames = []
+        self.speed = 5
+        self.cut_sheet(sheet, columns, rows)
+        self.cur_frame = 0
+        self.image = self.frames[self.cur_frame]
+        self.rect = self.rect.move(self.x, self.y)
+
+    def cut_sheet(self, sheet, columns, rows):
+        self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
+                                sheet.get_height() // rows)
+        for j in range(rows):
+            for i in range(columns):
+                frame_location = (self.rect.w * i, self.rect.h * j)
+                self.frames.append(sheet.subsurface(pygame.Rect(
+                    frame_location, self.rect.size)))
+
+    def update(self):
+        if self.rect.x + self.rect.w > width:
+            self.speed = -5
+            self.cur_frame = (self.cur_frame + 1) % len(self.frames)
+            self.image = self.frames[self.cur_frame]
+        elif self.rect.x < 0:
+            self.speed = 5
+            self.cur_frame = (self.cur_frame + 1) % len(self.frames)
+            self.image = self.frames[self.cur_frame]
+        self.rect.x += self.speed
 
 
 class CommonPlate(pygame.sprite.Sprite):
@@ -188,7 +223,7 @@ class Doodle(pygame.sprite.Sprite):
     def __init__(self, pos_x, pos_y):
         super().__init__(player, all_spite_group)
         self.image = doodle
-        self.kill = False
+        self.kill_d = False
         self.speed_y = 0
         self.speed_x = 0
         self.real_speed_y = 0
@@ -203,7 +238,7 @@ class Doodle(pygame.sprite.Sprite):
             self.rect.x = - self.rect.width // 2
         sprite = pygame.sprite.spritecollideany(self, platform_group)
         if sprite is not None and self.speed_y <= 0:
-            if sprite.rect.y > self.rect.y + self.rect.height // 3 * 2 and not self.kill:
+            if sprite.rect.y > self.rect.y + self.rect.height // 3 * 2 and not self.kill_d:
                 if type(sprite) == BreakPlate:
                     sprite.breaking = True
                 self.speed_y = 4.5
@@ -226,7 +261,7 @@ class Doodle(pygame.sprite.Sprite):
         self.rect.y = self.pos_y
 
     def kill_doodle(self):
-        self.kill = True
+        self.kill_d = True
 
 
 class Camera:
@@ -241,7 +276,7 @@ class Camera:
 
 class Stars(pygame.sprite.Sprite):
     def __init__(self, player1, sheet, columns, rows):
-        super().__init__(stars)
+        super().__init__()
         self.player1 = player1
         self.frames = []
         self.cut_sheet(sheet, columns, rows)
@@ -280,6 +315,20 @@ class Play(pygame.sprite.Sprite):
     def __init__(self, pos_x, pos_y):
         super().__init__(buttons_group, all_spite_group)
         self.image = load_image('play.png')
+        self.rect = self.image.get_rect().move(pos_x, pos_y)
+
+
+class Pause(pygame.sprite.Sprite):
+    def __init__(self, pos_x, pos_y):
+        super().__init__(buttons_group, all_spite_group)
+        self.image = load_image('pause.png')
+        self.rect = self.image.get_rect().move(pos_x, pos_y)
+
+
+class Resume(pygame.sprite.Sprite):
+    def __init__(self, pos_x, pos_y):
+        super().__init__(buttons_group, all_spite_group)
+        self.image = load_image('resume.png')
         self.rect = self.image.get_rect().move(pos_x, pos_y)
 
 
@@ -327,14 +376,18 @@ class Shuriken(pygame.sprite.Sprite):
 
 class Game:
     def __init__(self):
+        self.pause_fon = load_image('pause-cover.png')
+        self.pause = Pause(10, 10)
+        self.pause_game = False
         lava.rect.y = height * 2
         self.score = 0
         self.fon = load_image('fon.png')
         self.top_score_line = load_image('top-score.png')
         self.clock = pygame.time.Clock()
-        self.com_plate = 78
-        self.break_plate = 21
+        self.com_plate = 70
+        self.break_plate = 26
         self.move_plate = 2
+        self.mov_monst = 2
         self.defolt_space = 100
         self.space = self.defolt_space
         self.lava_speed = 4
@@ -346,30 +399,32 @@ class Game:
         for y in range(700 - self.space, 0, -self.space):
             CommonPlate(random.randrange(0, width - platforms['common'].get_width()), y)
         self.player1 = Doodle(215, 630)
+        self.stars = Stars(self.player1, load_image('stars.png'), 3, 1)
         self.start_pos1 = StartPoint((self.player1.pos_x, self.player1.pos_y))
         self.camera = Camera((self.player1.rect.x, self.player1.rect.y))
         self.y_for_new_plate = self.player1.rect.y - up_line
+        a = self.run()
+        while a is not None:
+            a = a()
 
     def run(self):
         time_since_last_update = 0
         running = True
         g_o = False
         while running:
-            pygame.sprite.groupcollide(shuriken_group, fire_ball_group, True, True)
-            if pygame.sprite.spritecollide(self.player1, fire_ball_group, True):
-                self.heals -= 1
-            lava.rect.y = lava.rect.y - self.lava_speed
-            dt = self.clock.tick()
-            time_since_last_update += dt
-            if time_since_last_update > 10:
-                lava.update()
-                time_since_last_update = 0
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    running = False
+                    return None
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
-                        if len(shuriken_group) < 2:
+                        if self.pause.rect.collidepoint(*event.pos):
+                            self.pause_game = True
+                            self.resume = Resume(138, 750)
+                        elif self.pause_game:
+                            if self.resume.rect.collidepoint(*event.pos):
+                                self.pause_game = False
+                                self.resume.kill()
+                        elif len(shuriken_group) < 2:
                             x, y = event.pos
                             x1, y1 = self.player1.rect.x + self.player1.rect.w // 2, \
                                      self.player1.rect.y + self.player1.rect.h // 2
@@ -384,17 +439,28 @@ class Game:
                                     Shuriken(load_image('shuriken.png'), 3, 1, 1, (x1, y1), -2)
                             else:
                                 Shuriken(load_image('shuriken.png'), 3, 1, (y1 - y) / (x1 - x), (x1, y1), a)
-            n = random.randrange(0, 1000)
-            if n <= self.fire_chace:
-                if len(fire_ball_group) < 2:
-                    image = random.choice(fire_balls[random.choice(['l', 'r'])])
-                    if image in fire_balls['l']:
-                        a = -1
-                    else:
-                        a = 1
-                    FireBall(image, 4, 1, a, random.randrange(0, 300), (self.player1.rect.x, self.player1.rect.y))
-            keys = pygame.key.get_pressed()
-            if not self.kill:
+            if not self.pause_game:
+                pygame.sprite.groupcollide(shuriken_group, fire_ball_group, True, True)
+                pygame.sprite.groupcollide(shuriken_group, monsters_group, True, True)
+                if pygame.sprite.spritecollide(self.player1, fire_ball_group, True):
+                    self.heals -= 1
+                if pygame.sprite.spritecollide(self.player1, monsters_group, True):
+                    self.heals -= 1
+                dt = self.clock.tick()
+                time_since_last_update += dt
+                if time_since_last_update > 10:
+                    lava.update()
+                    time_since_last_update = 0
+                n = random.randrange(0, 1000)
+                if n <= self.fire_chace:
+                    if len(fire_ball_group) < 3:
+                        image = random.choice(fire_balls[random.choice(['l', 'r'])])
+                        if image in fire_balls['l']:
+                            a = -1
+                        else:
+                            a = 1
+                        FireBall(image, 4, 1, a, random.randrange(0, 300), (self.player1.rect.x, self.player1.rect.y))
+                keys = pygame.key.get_pressed()
                 if keys[pygame.K_LEFT] or keys[pygame.K_a]:
                     if self.speed_doodle_x > -6:
                         self.speed_doodle_x -= 1
@@ -406,73 +472,77 @@ class Game:
                 else:
                     self.speed_doodle_x *= 0.9
                     self.player1.rect.x += self.speed_doodle_x
-            self.player1.update_jump()
-            if self.heals == 0 and not self.kill:
-                self.kill = True
-                self.stars = Stars(self.player1, load_image('stars.png'), 3, 1)
-                self.player1.kill_doodle()
-            if self.kill:
-                self.stars.update(dt)
-            moving_platform_group.update()
-            break_platform_group.update(dt)
-            shuriken_group.update()
-            fire_ball_group.update(dt)
-            if (self.player1.speed_y > 0 and self.player1.pos_y < up_line) or \
-                    self.player1.pos_y > height - self.player1.rect.height:
-                for sprite in platform_group:
-                    self.camera.apply(sprite, self.player1.real_speed_y)
-                    if sprite.rect.y > height + 50 or sprite.rect.y < -200:
-                        sprite.kill()
-                for sprite in fire_ball_group:
-                    self.camera.apply(sprite, self.player1.real_speed_y)
-                    if sprite.rect.y > height + 50 or sprite.rect.y < -200:
-                        sprite.kill()
-                self.camera.apply(self.start_pos1, self.player1.real_speed_y)
-                if lava.rect.y < height * 2:
-                    self.camera.apply(lava, self.player1.real_speed_y)
-            if self.score < self.start_pos1.rect.y - self.player1.rect.y:
-                self.score = self.start_pos1.rect.y - self.player1.rect.y
-                if self.y_for_new_plate < self.score - self.space:
-                    self.y_for_new_plate += self.space
-                    n = random.randrange(0, 101)
-                    if n <= self.com_plate:
-                        CommonPlate(random.randrange(0, width - platforms['common'].get_width()), 0)
-                        self.space = self.defolt_space
-                    elif n <= self.com_plate + self.move_plate:
-                        MovingPlate(random.randrange(0, width - platforms['moving'].get_width()), 0)
-                        self.space = self.defolt_space + 100
-                    elif n <= self.com_plate + self.move_plate + self.break_plate:
-                        BreakPlate(platforms['break'], 4, 1,
-                                   random.randrange(0, width - platforms['moving'].get_width()), 0)
-                        self.space = self.defolt_space
-            if not platform_group and not g_o:
-                lava.rect.y = height
-                g_o = True
+                if self.heals == 0 and not self.kill:
+                    self.kill = True
+                    self.player1.kill_doodle()
+                lava.rect.y = lava.rect.y - self.lava_speed
+                self.player1.update_jump()
+                monsters_group.update()
+                moving_platform_group.update()
+                break_platform_group.update(dt)
+                shuriken_group.update()
+                fire_ball_group.update(dt)
+                if (self.player1.speed_y > 0 and self.player1.pos_y < up_line) or \
+                        self.player1.pos_y > height - self.player1.rect.height:
+                    for i in [platform_group, fire_ball_group, monsters_group]:
+                        for sprite in i:
+                            self.camera.apply(sprite, self.player1.real_speed_y)
+                            if sprite.rect.y > height + 50 or sprite.rect.y < -200:
+                                sprite.kill()
+                    self.camera.apply(self.start_pos1, self.player1.real_speed_y)
+                    if lava.rect.y < height * 2:
+                        self.camera.apply(lava, self.player1.real_speed_y)
+                if self.score < self.start_pos1.rect.y - self.player1.rect.y:
+                    self.score = self.start_pos1.rect.y - self.player1.rect.y
+                    if self.y_for_new_plate < self.score - self.space:
+                        self.y_for_new_plate += self.space
+                        n = random.randrange(1, 101)
+                        if n <= self.com_plate:
+                            CommonPlate(random.randrange(0, width - platforms['common'].get_width()), 0)
+                            self.space = self.defolt_space
+                        elif n <= self.com_plate + self.move_plate:
+                            MovingPlate(random.randrange(0, width - platforms['moving'].get_width()), 0)
+                            self.space = self.defolt_space + 100
+                        elif n <= self.com_plate + self.move_plate + self.break_plate:
+                            BreakPlate(platforms['break'], 4, 1,
+                                       random.randrange(0, width - platforms['break'].get_width()), 0)
+                            self.space = self.defolt_space
+                        elif n <= self.com_plate + self.move_plate + self.break_plate + self.mov_monst:
+                            MovingMonster(monsters['moving'], 2, 1,
+                                          random.randrange(0, width - monsters['moving'].get_width()), -20)
+                            self.space = self.defolt_space
+                if not platform_group and not g_o:
+                    lava.rect.y = height
+                    g_o = True
+                screen.blit(self.fon, (-100, 0))
+                platform_group.draw(screen)
+                monsters_group.draw(screen)
+                player.draw(screen)
+                if self.kill:
+                    self.stars.update(dt)
+                    screen.blit(self.stars.image, (self.stars.rect.x, self.stars.rect.y))
+                shuriken_group.draw(screen)
+                fire_ball_group.draw(screen)
+                screen.blit(lava.image, (lava.rect.x, lava.rect.y))
+                screen.blit(self.top_score_line, (0, -10))
+                score_text = load_font('Comic Sans MS.ttf', 36).render(str(self.score // 10), True, (0, 0, 0))
+                heals_count = load_font('Comic Sans MS.ttf', 36).render(str(self.heals) + '×', True, (0, 0, 0))
+                y_heals_count = (55 - heals_count.get_height()) // 2
+                x_heals_count = 300 - heals_count.get_width()
+                screen.blit(heals_count, (x_heals_count, y_heals_count))
+                w_score_text = score_text.get_width()
+                screen.blit(score_text, (width - w_score_text - 20, 0))
+                y_heals_image = (55 - heard.get_height()) // 2
+                x_heals_image = 300
+                screen.blit(heard, (x_heals_image, y_heals_image))
+                buttons_group.draw(screen)
+            if self.pause_game:
+                screen.blit(self.pause_fon, (0, 0))
+                screen.blit(self.resume.image, (self.resume.rect.x, self.resume.rect.y))
             if pygame.sprite.collide_mask(self.player1, lava):
-                running = False
-                self.game_over()
-            screen.blit(self.fon, (-100, 0))
-            platform_group.draw(screen)
-            player.draw(screen)
-            stars.draw(screen)
-            screen.blit(self.top_score_line, (0, -10))
-            score_text = load_font('Comic Sans MS.ttf', 36).render(str(self.score // 10), True, (0, 0, 0))
-            heals_count = load_font('Comic Sans MS.ttf', 36).render(str(self.heals) + '×', True, (0, 0, 0))
-            y_heals_count = (55 - heals_count.get_height()) // 2
-            x_heals_count = 350 - heals_count.get_width()
-            screen.blit(heals_count, (x_heals_count, y_heals_count))
-            w_score_text = score_text.get_width()
-            screen.blit(score_text, (width - w_score_text - 20, 0))
-            y_heals_image = (55 - heard.get_height()) // 2
-            x_heals_image = 350
-            screen.blit(heard, (x_heals_image, y_heals_image))
-            shuriken_group.draw(screen)
-            fire_ball_group.draw(screen)
-            screen.blit(lava.image, (lava.rect.x, lava.rect.y))
-            buttons_group.draw(screen)
+                return self.game_over
             self.clock.tick(FPS)
             pygame.display.flip()
-        pygame.quit()
 
     def game_over(self):
         for sprite in buttons_group:
@@ -489,17 +559,26 @@ class Game:
         font2 = load_font('Comic Sans MS.ttf', 45)
         score_text = font2.render(f'score: {self.score // 10}', True, (166, 166, 166))
         x_score_text = (width - score_text.get_width()) // 2
+        font3 = load_font('Comic Sans MS.ttf', 30)
+        enter_your_name_text = font3.render('enter your name: ', True, (166, 166, 166))
+        inpur_rect = pygame.Rect(20 + enter_your_name_text.get_width(),
+                                 200 + game_over_text.get_height() + score_text.get_height(), 200, 32)
+        user_text = ''
+        used_rect = False
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    running = False
+                    return None
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
+                        if inpur_rect.collidepoint(*event.pos):
+                            used_rect = True
+                        else:
+                            used_rect = False
                         if len(buttons_group) == 1:
                             if play.rect.collidepoint(*event.pos):
                                 self.del_groups()
-                                self.__init__()
-                                self.run()
+                                return self.run
             if lava.rect.y > 0:
                 lava.rect.y -= 10
             dt = self.clock.tick()
@@ -521,6 +600,8 @@ class Game:
                     play = Play(140, 800)
                 screen.blit(game_over_text, (x_game_over_text, 200))
                 screen.blit(score_text, (x_score_text, 200 + game_over_text.get_height()))
+                screen.blit(enter_your_name_text, (20, 200 + game_over_text.get_height() + score_text.get_height()))
+                pygame.draw.rect(screen, pygame.color.Color('#a0d6b4'), inpur_rect, 2)
             buttons_group.draw(screen)
             self.clock.tick(FPS)
             pygame.display.flip()
@@ -528,8 +609,30 @@ class Game:
     def del_groups(self):
         for i in all_spite_group:
             i.kill()
+        self.pause = Pause(10, 10)
+        self.pause_game = False
+        lava.rect.y = height * 2
+        self.score = 0
+        self.com_plate = 70
+        self.break_plate = 26
+        self.move_plate = 2
+        self.mov_monst = 2
+        self.defolt_space = 100
+        self.space = self.defolt_space
+        self.lava_speed = 4
+        self.fire_chace = 5
+        self.heals = 3
+        self.kill = False
+        self.speed_doodle_x = 0
+        CommonPlate(193, 700)
+        for y in range(700 - self.space, 0, -self.space):
+            CommonPlate(random.randrange(0, width - platforms['common'].get_width()), y)
+        self.player1 = Doodle(215, 630)
+        self.start_pos1 = StartPoint((self.player1.pos_x, self.player1.pos_y))
+        self.camera = Camera((self.player1.rect.x, self.player1.rect.y))
+        self.y_for_new_plate = self.player1.rect.y - up_line
 
 
 if __name__ == '__main__':
     game = Game()
-    game.run()
+    pygame.quit()
