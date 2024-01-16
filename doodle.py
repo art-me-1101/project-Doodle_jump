@@ -1,7 +1,7 @@
 import pygame
 import math
 from plate_and_difficult_object import BreakPlate, platform_group
-from functions_and_constants import load_image, all_spite_group, width, up_line, height
+from functions_and_constants import load_image, all_spite_group, width, up_line, height, load_sound
 
 shuriken_group = pygame.sprite.Group()
 
@@ -9,6 +9,8 @@ shuriken_group = pygame.sprite.Group()
 class Doodle(pygame.sprite.Sprite):
     def __init__(self, pos_x, pos_y):
         super().__init__(all_spite_group)
+        self.jump = load_sound('jump.mp3')
+        self.breaking_platform = load_sound('breaking_platform.mp3')
         self.image = load_image('doodle.png')
         self.kill_d = False
         self.speed_y = 0
@@ -27,7 +29,9 @@ class Doodle(pygame.sprite.Sprite):
         if sprite is not None and self.speed_y <= 0:
             if sprite.rect.y > self.rect.y + self.rect.height // 3 * 2 and not self.kill_d:
                 if type(sprite) == BreakPlate:
+                    self.breaking_platform.play()
                     sprite.breaking = True
+                self.jump.play()
                 self.speed_y = 4.5
             else:
                 self.speed_y -= 0.1

@@ -90,6 +90,14 @@ class Game:
                   load_image('fire_ball_blue_R.png')]
         }
         heard = load_image('heals.png')
+        font1 = load_font('Comic Sans MS.ttf', 70)
+        doodle_jump_text = font1.render('Doodle jump', True, (255, 0, 0))
+        doodle_jump_text = pygame.transform.rotate(doodle_jump_text, 20)
+        d_j_t_x = (width - doodle_jump_text.get_width()) // 2
+        font2 = load_font('Comic Sans MS.ttf', 50)
+        pause_text = font2.render('pause', True, (125, 125, 125))
+        pause_text = pygame.transform.rotate(pause_text, 20)
+        pause_x = (width - pause_text.get_width()) // 2 - 20
         CommonPlate(193, 700)
         for y in range(700 - self.space, 0, -self.space):
             CommonPlate(random.randrange(0, width - load_image('common_plate.png').get_width()), y)
@@ -279,7 +287,9 @@ class Game:
                 screen.blit(heard, (x_heals_image, y_heals_image))
                 buttons_group.draw(screen)
             if self.pause_game:
-                screen.blit(self.pause_fon, (0, 0))
+                screen.blit(self.fon, (0, 0))
+                screen.blit(doodle_jump_text, (d_j_t_x, 100))
+                screen.blit(pause_text, (pause_x, 220))
                 screen.blit(resume.image, (resume.rect.x, resume.rect.y))
                 screen.blit(menu.image, (menu.rect.x, menu.rect.y))
             if pygame.sprite.collide_mask(self.player, self.lava):
