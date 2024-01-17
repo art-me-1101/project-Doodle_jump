@@ -5,7 +5,8 @@ from plate_and_difficult_object import BreakPlate, MovingPlate, CommonPlate, Mov
     platform_group, break_platform_group, moving_platform_group, fire_ball_group, LavaSprite
 from doodle import Doodle, Stars, Shuriken, shuriken_group, StartPoint, Camera
 from buttons import buttons_group, Button
-from functions_and_constants import load_image, load_font, size, all_spite_group, width, height, up_line, FPS
+from functions_and_constants import load_image, load_font, size, all_spite_group, width, height, up_line, FPS, \
+    load_sound
 
 pygame.init()
 screen = pygame.display.set_mode(size)
@@ -82,6 +83,10 @@ class Game:
         return None
 
     def run(self):
+        pygame.mixer.stop()
+        game_music = load_sound('game_music.mp3')
+        game_music.set_volume(0.2)
+        game_music.play(loops=-1)
         last_obj_is_monst = False
         fire_balls = {
             'l': [load_image('fire_ball_orange_L.png'), load_image('fire_ball_purple_L.png'),
@@ -124,7 +129,7 @@ class Game:
                         elif len(shuriken_group) < 2:
                             x, y = event.pos
                             x1, y1 = self.player.rect.x + self.player.rect.w // 2, \
-                                self.player.rect.y + self.player.rect.h // 2
+                                     self.player.rect.y + self.player.rect.h // 2
                             if x1 - x < 0:
                                 a = -1
                             else:
@@ -300,6 +305,9 @@ class Game:
     def game_over(self):
         for sprite in buttons_group:
             sprite.kill()
+        pygame.mixer.stop()
+        game_over = load_sound('game_over.mp3')
+        game_over.play()
         play = Button(width + 10, height + 10, load_image('play.png'))
         menu = Button(width + 10, height + 10, load_image('menu.png'))
         running = True
@@ -366,6 +374,7 @@ class Game:
                 s.set_alpha(opacity)
             screen.blit(s, (0, 0))
             if opacity > 255:
+                pygame.mixer.stop()
                 if play.rect.x > width:
                     play.rect.x = 140
                     play.rect.y = height - 200
@@ -418,6 +427,7 @@ class Game:
         else:
             with open('last_name.txt', 'w', encoding='utf-8') as f:
                 f.write(user_text)
+
 
 class Score_window:
     def __init__(self):
@@ -483,6 +493,7 @@ class Score_window:
         con.commit()
         con.close()
 
+
 class Start_window:
     def __init__(self):
         pygame.display.set_caption('doodle jump')
@@ -491,6 +502,10 @@ class Start_window:
         self.fon = load_image('fon.png')
 
     def run_win(self):
+        if not pygame.mixer.get_busy():
+            fon_sound = load_sound('fon_music.mp3')
+            fon_sound.set_volume(0.2)
+            fon_sound.play(loops=-1)
         font = load_font('Comic Sans MS.ttf', 50)
         font1 = load_font('Comic Sans MS.ttf', 70)
         doodle_jump_text = font1.render('Doodle jump', True, (255, 0, 0))
