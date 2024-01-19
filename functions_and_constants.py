@@ -23,12 +23,14 @@ def load_image(name, colorkey=None):
         image = image.convert_alpha()
     return image
 
+
 def load_sound(name):
     fullname = os.path.join('sound', name)
     if not os.path.isfile(fullname):
         print(f"Файл с изображением '{fullname}' не найден")
         sys.exit()
     return pygame.mixer.Sound(fullname)
+
 
 def load_font(filename, size):
     fullname = os.path.join('font', filename)

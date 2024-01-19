@@ -38,6 +38,7 @@ class Game:
         self.fon = load_image('fon.png')
         self.top_score_line = load_image('top-score.png')
         self.clock = pygame.time.Clock()
+        self.extra_score = 0
         if self.dif == 1:
             self.com_plate = 76
             self.break_plate = 20
@@ -45,20 +46,23 @@ class Game:
             self.mov_monst = 1
             self.lava_speed = 2
             self.fire_chace = 1
-        if self.dif == 2:
+            self.score_mult = 1 / 6
+        elif self.dif == 2:
             self.com_plate = 50
             self.break_plate = 35
             self.move_plate = 10
             self.mov_monst = 5
             self.lava_speed = 3
             self.fire_chace = 5
-        if self.dif == 3:
+            self.score_mult = 1 / 4
+        elif self.dif == 3:
             self.com_plate = 45
             self.break_plate = 30
             self.move_plate = 15
             self.mov_monst = 10
             self.lava_speed = 4
             self.fire_chace = 8
+            self.score_mult = 1 / 2
         self.score_to_new_update = 500
         self.fire_count = 3
         self.score_for_update = self.score_to_new_update
@@ -140,8 +144,10 @@ class Game:
                             else:
                                 Shuriken(load_image('shuriken.png'), 3, 1, (y1 - y) / (x1 - x), (x1, y1), a)
             if not self.pause_game:
-                pygame.sprite.groupcollide(shuriken_group, fire_ball_group, True, True)
-                pygame.sprite.groupcollide(shuriken_group, monsters_group, True, True)
+                if pygame.sprite.groupcollide(shuriken_group, fire_ball_group, True, True):
+                    self.extra_score += 100
+                if pygame.sprite.groupcollide(shuriken_group, monsters_group, True, True):
+                    self.extra_score += 80
                 if pygame.sprite.spritecollide(self.player, fire_ball_group, True) and self.heals > 0:
                     self.heals -= 1
                 if pygame.sprite.spritecollide(self.player, monsters_group, True) and self.heals > 0:
@@ -193,7 +199,7 @@ class Game:
                     self.camera.apply(self.start_pos, self.player.real_speed_y)
                     if self.lava.rect.y < height * 2:
                         self.camera.apply(self.lava, self.player.real_speed_y)
-                if self.score // 6 > self.score_for_update:
+                if int(self.score * self.score_mult) + self.extra_score > self.score_for_update:
                     self.score_for_update += self.score_to_new_update
                     if self.dif == 1:
                         if self.defolt_space < 200:
@@ -208,7 +214,7 @@ class Game:
                             self.move_plate += 1
                             self.mov_monst += 1
                         self.fire_count += 0.3
-                        self.fire_chace += 0.8
+                        self.fire_chace += 0.2
                         self.lava_speed += 0.02
                     if self.dif == 2:
                         if self.defolt_space < 200:
@@ -222,8 +228,8 @@ class Game:
                             self.break_plate -= 2
                             self.move_plate += 1
                             self.mov_monst += 1
-                        self.fire_count += 0.6
-                        self.fire_chace += 1
+                        self.fire_count += 0.4
+                        self.fire_chace += 0.4
                         self.lava_speed += 0.03
                     if self.dif == 3:
                         if self.defolt_space < 200:
@@ -237,8 +243,8 @@ class Game:
                             self.break_plate -= 2.5
                             self.move_plate += 1
                             self.mov_monst += 1.5
-                        self.fire_count += 1
-                        self.fire_chace += 1.5
+                        self.fire_count += 0.5
+                        self.fire_chace += 0.5
                         self.lava_speed += 0.05
                 if self.score < self.start_pos.rect.y - self.player.rect.y:
                     self.score = self.start_pos.rect.y - self.player.rect.y
@@ -280,7 +286,8 @@ class Game:
                 fire_ball_group.draw(screen)
                 screen.blit(self.lava.image, (self.lava.rect.x, self.lava.rect.y))
                 screen.blit(self.top_score_line, (0, -10))
-                score_text = load_font('Comic Sans MS.ttf', 36).render(str(self.score // 6), True, (0, 0, 0))
+                score_text = load_font('Comic Sans MS.ttf', 36).render(
+                    str(int(self.score * self.score_mult) + self.extra_score), True, (0, 0, 0))
                 heals_count = load_font('Comic Sans MS.ttf', 36).render(str(self.heals) + '×', True, (0, 0, 0))
                 y_heals_count = (55 - heals_count.get_height()) // 2
                 x_heals_count = 300 - heals_count.get_width()
@@ -320,7 +327,8 @@ class Game:
         game_over_text = font1.render('Game Over', False, (209, 13, 13))
         x_game_over_text = (width - game_over_text.get_width()) // 2
         font2 = load_font('Comic Sans MS.ttf', 45)
-        score_text = font2.render(f'score: {self.score // 6}', True, (166, 166, 166))
+        score_text = font2.render(f'score: {int(self.score * self.score_mult) + self.extra_score}',
+                                  True, (166, 166, 166))
         x_score_text = (width - score_text.get_width()) // 2
         font3 = load_font('Comic Sans MS.ttf', 30)
         enter_your_name_text = font3.render('enter your name: ', True, (166, 166, 166))
@@ -410,16 +418,16 @@ class Game:
                 where name = ?
             ''', (user_text,)).fetchall()
             if a:
-                if a[0][0] < self.score // 6:
+                if a[0][0] < int(self.score * self.score_mult) + self.extra_score:
                     cur.execute('''
                     update Scores
                     set score = ?
                     where name = ?
-                    ''', (self.score // 6, user_text))
+                    ''', (int(self.score * self.score_mult) + self.extra_score, user_text))
             else:
                 cur.execute('''
                 INSERT INTO Scores(name, score) VALUES (?, ?)
-                ''', (user_text, self.score // 6))
+                ''', (user_text, int(self.score * self.score_mult) + self.extra_score))
             con.commit()
             con.close()
             with open('last_name.txt', 'w', encoding='utf-8') as f:
@@ -507,46 +515,35 @@ class StartWindow:
             fon_sound.set_volume(0.2)
             fon_sound.play(loops=-1)
         font = load_font('Comic Sans MS.ttf', 50)
-        font1 = load_font('Comic Sans MS.ttf', 70)
-        doodle_jump_text = font1.render('Doodle jump', True, (255, 0, 0))
+        doodle_jump_text = load_font('Comic Sans MS.ttf', 70).render('Doodle jump', True, (255, 0, 0))
         doodle_jump_text = pygame.transform.rotate(doodle_jump_text, 20)
         d_j_t_x = (width - doodle_jump_text.get_width()) // 2
-        exit_text = font.render("Exit", True, (0, 0, 0))
-        exit_text_x = width // 2 - exit_text.get_width() // 2
-        exit_text_y = 700
-        exit_text_w = exit_text.get_width()
-        exit_text_h = exit_text.get_height()
-        exit_rect = pygame.Rect(exit_text_x - 30, exit_text_y - 10, exit_text_w + 60, exit_text_h + 20)
-        score_text = font.render("Score", True, (0, 0, 0))
-        score_text_x = width // 2 - score_text.get_width() // 2
-        score_text_y = 600
-        score_text_w = score_text.get_width()
-        score_text_h = score_text.get_height()
-        score_rect = pygame.Rect(score_text_x - 30, score_text_y - 10, score_text_w + 60, score_text_h + 20)
-        play_text = font.render("Play", True, (0, 0, 0))
-        play_text_x = width // 2 - play_text.get_width() // 2
-        play_text_y = 500
-        play_text_w = play_text.get_width()
-        play_text_h = play_text.get_height()
-        play_rect = pygame.Rect(play_text_x - 30, play_text_y - 10, play_text_w + 60, play_text_h + 20)
+        buttons = []
+        for h, text in [(700, "Exit"), (600, "Score"), (500, "Play")]:
+            text = font.render(text, True, (0, 0, 0))
+            text_x = width // 2 - text.get_width() // 2
+            text_y = h
+            text_w = text.get_width()
+            text_h = text.get_height()
+            rect = pygame.Rect(text_x, text_y, text_w, text_h)
+            buttons.append((text, rect))
         while self.running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return None
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
-                        if exit_rect.collidepoint(*event.pos):
+                        if buttons[0][1].collidepoint(*event.pos):
                             return None
-                        if score_rect.collidepoint(*event.pos):
+                        if buttons[1][1].collidepoint(*event.pos):
                             for i in all_spite_group:
                                 i.kill()
                             return ScoreWindow
-                        if play_rect.collidepoint(*event.pos):
+                        if buttons[2][1].collidepoint(*event.pos):
                             return DifficultWindow
             screen.blit(self.fon, (-100, 0))
-            screen.blit(exit_text, (exit_text_x, exit_text_y))
-            screen.blit(score_text, (score_text_x, score_text_y))
-            screen.blit(play_text, (play_text_x, play_text_y))
+            for i in buttons:
+                screen.blit(*i)
             screen.blit(doodle_jump_text, (d_j_t_x, 50))
             self.clock.tick(FPS)
             pygame.display.flip()
@@ -559,62 +556,34 @@ class DifficultWindow:
         self.fon = load_image('fon.png')
 
     def run_win(self):
+        buttons = []
         font = load_font('Comic Sans MS.ttf', 50)
-        back_text = font.render("Back", True, (0, 0, 0))
-        back_text_x = width // 2 - back_text.get_width() // 2
-        back_text_y = 800
-        back_text_w = back_text.get_width()
-        back_text_h = back_text.get_height()
-        back_rect = pygame.Rect(back_text_x - 30, back_text_y - 10, back_text_w + 60, back_text_h + 20)
-        exit_text = font.render("Normal", True, (0, 0, 0))
-        exit_text_x = width // 2 - exit_text.get_width() // 2
-        exit_text_y = 500
-        exit_text_w = exit_text.get_width()
-        exit_text_h = exit_text.get_height()
-        exit_rect = pygame.Rect(exit_text_x - 30, exit_text_y - 10, exit_text_w + 60, exit_text_h + 20)
-        score_text = font.render("Hard", True, (0, 0, 0))
-        score_text_x = width // 2 - score_text.get_width() // 2
-        score_text_y = 600
-        score_text_w = score_text.get_width()
-        score_text_h = score_text.get_height()
-        score_rect = pygame.Rect(score_text_x - 30, score_text_y - 10, score_text_w + 60, score_text_h + 20)
-        play_text = font.render("Very Hard", True, (0, 0, 0))
-        play_text_x = width // 2 - play_text.get_width() // 2
-        play_text_y = 700
-        play_text_w = play_text.get_width()
-        play_text_h = play_text.get_height()
-        play_rect = pygame.Rect(play_text_x - 30, play_text_y - 10, play_text_w + 60, play_text_h + 20)
+        for h, text in [(800, 'Back'), (500, "Normal"), (600, "Hard"), (700, "Very Hard")]:
+            text = font.render(text, True, (0, 0, 0))
+            text_y = h
+            text_x = (width - text.get_width()) // 2
+            text_w = text.get_width()
+            text_h = text.get_height()
+            rect = pygame.Rect(text_x, text_y, text_w, text_h)
+            buttons.append((text, rect))
         while self.running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return None
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
-                        if exit_rect.collidepoint(*event.pos):
+                        if buttons[1][1].collidepoint(*event.pos):
                             return Game, 1
-                        if score_rect.collidepoint(*event.pos):
+                        if buttons[2][1].collidepoint(*event.pos):
                             for i in all_spite_group:
                                 i.kill()
                             return Game, 2
-                        if play_rect.collidepoint(*event.pos):
+                        if buttons[3][1].collidepoint(*event.pos):
                             return Game, 3
-                        if back_rect.collidepoint(*event.pos):
+                        if buttons[0][1].collidepoint(*event.pos):
                             return StartWindow
             screen.blit(self.fon, (-100, 0))
-            screen.blit(exit_text, (exit_text_x, exit_text_y))
-            screen.blit(score_text, (score_text_x, score_text_y))
-            screen.blit(play_text, (play_text_x, play_text_y))
-            screen.blit(back_text, (back_text_x, back_text_y))
+            for i in buttons:
+                screen.blit(*i)
             self.clock.tick(FPS)
             pygame.display.flip()
-
-
-if __name__ == '__main__':
-    game = StartWindow().run_win()
-    while game is not None:
-        if type(game) == tuple:
-            game, dif = game
-            game = game(dif).run_win()
-        else:
-            game = game().run_win()
-    pygame.quit()
