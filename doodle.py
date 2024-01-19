@@ -27,7 +27,7 @@ class Doodle(pygame.sprite.Sprite):
             self.rect.x = - self.rect.width // 2
         sprite = pygame.sprite.spritecollideany(self, platform_group)
         if sprite is not None and self.speed_y <= 0:
-            if sprite.rect.y > self.rect.y + self.rect.height // 3 * 2 and not self.kill_d:
+            if sprite.rect.y > self.rect.y + self.rect.height - 28 and not self.kill_d:
                 if type(sprite) == BreakPlate:
                     self.breaking_platform.play()
                     sprite.breaking = True

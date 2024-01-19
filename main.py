@@ -1,8 +1,8 @@
-from Windows import Start_window
+from Windows import StartWindow
 import pygame
 
 if __name__ == '__main__':
-    game = Start_window().run_win()
+    game = StartWindow().run_win()
     while game is not None:
         if type(game) == tuple:
             game, dif = game

@@ -15,7 +15,7 @@ screen = pygame.display.set_mode(size)
 class Game:
     def __init__(self, difficult):
         try:
-            f = open('last_name.txt')
+            open('last_name.txt')
         except FileNotFoundError:
             with open('last_name.txt', 'w', encoding='utf-8') as f:
                 f.write('')
@@ -77,8 +77,8 @@ class Game:
         self.del_groups()
         a = self.run()
         while a is not None:
-            if type(a) == Start_window:
-                return Start_window
+            if type(a) == StartWindow:
+                return StartWindow
             a = a()
         return None
 
@@ -125,11 +125,11 @@ class Game:
                                 resume.kill()
                                 menu.kill()
                             if menu.rect.collidepoint(*event.pos):
-                                return Start_window
+                                return StartWindow
                         elif len(shuriken_group) < 2:
                             x, y = event.pos
                             x1, y1 = self.player.rect.x + self.player.rect.w // 2, \
-                                     self.player.rect.y + self.player.rect.h // 2
+                                self.player.rect.y + self.player.rect.h // 2
                             if x1 - x < 0:
                                 a = -1
                             else:
@@ -193,7 +193,7 @@ class Game:
                     self.camera.apply(self.start_pos, self.player.real_speed_y)
                     if self.lava.rect.y < height * 2:
                         self.camera.apply(self.lava, self.player.real_speed_y)
-                if self.score // 10 > self.score_for_update:
+                if self.score // 6 > self.score_for_update:
                     self.score_for_update += self.score_to_new_update
                     if self.dif == 1:
                         if self.defolt_space < 200:
@@ -257,7 +257,7 @@ class Game:
                             self.space = self.defolt_space + 100
                             last_obj_is_monst = True
                         elif n <= self.com_plate + self.move_plate + self.break_plate:
-                            BreakPlate(load_image('break_plate.png'), 4, 1,
+                            BreakPlate(4, 1,
                                        random.randrange(0, width - load_image('break_plate.png').get_width() // 4), 0)
                             self.space = self.defolt_space
                         elif n <= self.com_plate + self.move_plate + self.break_plate + self.mov_monst:
@@ -280,7 +280,7 @@ class Game:
                 fire_ball_group.draw(screen)
                 screen.blit(self.lava.image, (self.lava.rect.x, self.lava.rect.y))
                 screen.blit(self.top_score_line, (0, -10))
-                score_text = load_font('Comic Sans MS.ttf', 36).render(str(self.score // 10), True, (0, 0, 0))
+                score_text = load_font('Comic Sans MS.ttf', 36).render(str(self.score // 6), True, (0, 0, 0))
                 heals_count = load_font('Comic Sans MS.ttf', 36).render(str(self.heals) + '×', True, (0, 0, 0))
                 y_heals_count = (55 - heals_count.get_height()) // 2
                 x_heals_count = 300 - heals_count.get_width()
@@ -320,7 +320,7 @@ class Game:
         game_over_text = font1.render('Game Over', False, (209, 13, 13))
         x_game_over_text = (width - game_over_text.get_width()) // 2
         font2 = load_font('Comic Sans MS.ttf', 45)
-        score_text = font2.render(f'score: {self.score // 10}', True, (166, 166, 166))
+        score_text = font2.render(f'score: {self.score // 6}', True, (166, 166, 166))
         x_score_text = (width - score_text.get_width()) // 2
         font3 = load_font('Comic Sans MS.ttf', 30)
         enter_your_name_text = font3.render('enter your name: ', True, (166, 166, 166))
@@ -351,7 +351,7 @@ class Game:
                     if menu.rect.collidepoint(*event.pos):
                         self.save_score(user_text)
                         self.del_groups()
-                        return Start_window
+                        return StartWindow
                 if event.type == pygame.KEYDOWN and used_rect:
                     if event.key == pygame.K_BACKSPACE:
                         user_text = user_text[:-1]
@@ -410,16 +410,16 @@ class Game:
                 where name = ?
             ''', (user_text,)).fetchall()
             if a:
-                if a[0][0] < self.score // 10:
+                if a[0][0] < self.score // 6:
                     cur.execute('''
                     update Scores
                     set score = ?
                     where name = ?
-                    ''', (self.score // 10, user_text))
+                    ''', (self.score // 6, user_text))
             else:
                 cur.execute('''
                 INSERT INTO Scores(name, score) VALUES (?, ?)
-                ''', (user_text, self.score // 10))
+                ''', (user_text, self.score // 6))
             con.commit()
             con.close()
             with open('last_name.txt', 'w', encoding='utf-8') as f:
@@ -429,7 +429,7 @@ class Game:
                 f.write(user_text)
 
 
-class Score_window:
+class ScoreWindow:
     def __init__(self):
         self.screen2 = pygame.Surface((width, height), pygame.SRCALPHA, 32)
         self.update_score()
@@ -453,7 +453,7 @@ class Score_window:
                         a += 15
                     if event.button == 1:
                         if self.back.rect.collidepoint(*event.pos):
-                            return Start_window
+                            return StartWindow
                         if self.trash.rect.collidepoint(*event.pos):
                             self.del_bd()
                             self.update_score()
@@ -494,7 +494,7 @@ class Score_window:
         con.close()
 
 
-class Start_window:
+class StartWindow:
     def __init__(self):
         pygame.display.set_caption('doodle jump')
         self.clock = pygame.time.Clock()
@@ -540,9 +540,9 @@ class Start_window:
                         if score_rect.collidepoint(*event.pos):
                             for i in all_spite_group:
                                 i.kill()
-                            return Score_window
+                            return ScoreWindow
                         if play_rect.collidepoint(*event.pos):
-                            return Difficult_window
+                            return DifficultWindow
             screen.blit(self.fon, (-100, 0))
             screen.blit(exit_text, (exit_text_x, exit_text_y))
             screen.blit(score_text, (score_text_x, score_text_y))
@@ -552,7 +552,7 @@ class Start_window:
             pygame.display.flip()
 
 
-class Difficult_window:
+class DifficultWindow:
     def __init__(self):
         self.clock = pygame.time.Clock()
         self.running = True
@@ -599,7 +599,7 @@ class Difficult_window:
                         if play_rect.collidepoint(*event.pos):
                             return Game, 3
                         if back_rect.collidepoint(*event.pos):
-                            return Start_window
+                            return StartWindow
             screen.blit(self.fon, (-100, 0))
             screen.blit(exit_text, (exit_text_x, exit_text_y))
             screen.blit(score_text, (score_text_x, score_text_y))
@@ -610,7 +610,7 @@ class Difficult_window:
 
 
 if __name__ == '__main__':
-    game = Start_window().run_win()
+    game = StartWindow().run_win()
     while game is not None:
         if type(game) == tuple:
             game, dif = game

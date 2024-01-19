@@ -115,12 +115,12 @@ class CommonPlate(pygame.sprite.Sprite):
 
 
 class BreakPlate(pygame.sprite.Sprite):
-    def __init__(self, sheet, columns, rows, x, y):
+    def __init__(self, columns, rows, x, y):
         super().__init__(platform_group, break_platform_group, all_spite_group)
         self.breaking = False
         self.time_since_last_animate = 0
         self.frames = []
-        self.cut_sheet(sheet, columns, rows)
+        self.cut_sheet(load_image('break_plate.png'), columns, rows)
         self.cur_frame = 0
         self.image = self.frames[self.cur_frame]
         self.rect = self.rect.move(x, y)
